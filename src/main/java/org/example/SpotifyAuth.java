@@ -6,6 +6,9 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.*;
 import java.awt.Desktop;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.Base64;
@@ -41,6 +44,30 @@ public class SpotifyAuth {
         myServer.stop(0);
         System.out.println("Got authorization code: " + code);
 
+        // make POST request to get access token
+
+        String credentials = CLIENT_ID + ":" + System.getenv("SPOTIFY_CLIENT_SECRET");
+        String encoded = Base64.getEncoder().encodeToString(credentials.getBytes());
+
+        // construct body of post request
+        String body = "grant_type=authorization_code"
+                + "&code=" + URLEncoder.encode(code, StandardCharsets.UTF_8)
+                + "&redirect_uri=" + URLEncoder.encode(REDIRECT_URI, StandardCharsets.UTF_8);
+
+        HttpClient httpClient = HttpClient.newHttpClient();
+        HttpRequest tokenRequest = HttpRequest.newBuilder()
+                .uri(URI.create("https://accounts.spotify.com/api/token"))  // endpoint to make POST request to
+                .header("Authorization", "Basic " + encoded)
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build();
+
+        HttpResponse<String> tokenResponse = httpClient.send(
+                tokenRequest,
+                HttpResponse.BodyHandlers.ofString()
+        );
+
+        System.out.println("Token response: " + tokenResponse.body());
 
     }
 
