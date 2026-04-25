@@ -73,10 +73,27 @@ public class SpotifyAuth {
                 return;
             }
 
+            String code = params.get("code");
+            String response =
+                    "<html><body><h1> Authorization successful! </h1>"
+                    + "<p> You can close this tab and return to the app. </p></body></html>";
+            exchange.getResponseHeaders().set("Content-Type", "text/html");
+            exchange.sendResponseHeaders(200, response.length()); // 200 = successful request
+            exchange.getResponseBody().write(response.getBytes());
+            exchange.close();
 
+            codeFuture.complete(code);
 
-        }
+        });
 
+        myServer.start();
+        System.out.println("Listening on http://127.0.0.1:8888/callback");
+
+        // block main from finishing until callback completed or fails
+        String code = codeFuture.get();
+        myServer.stop(0);
+
+        System.out.println("Got authorization code: " + code);
 
     }
 
@@ -95,5 +112,7 @@ public class SpotifyAuth {
                 params.put(key, value);
             }
         }
+
+        return params;
     }
 }
