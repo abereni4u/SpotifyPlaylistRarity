@@ -1,0 +1,20 @@
+# Maven
+target/
+
+# IntelliJ
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Compiled
+*.class
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment / secrets
+.env
+*.local
