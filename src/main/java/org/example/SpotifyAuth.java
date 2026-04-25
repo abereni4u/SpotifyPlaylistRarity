@@ -18,6 +18,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
+
+// -- JSON Parsing -- //
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 public class SpotifyAuth {
 
     private static final String CLIENT_ID = System.getenv("SPOTIFY_CLIENT_ID");
