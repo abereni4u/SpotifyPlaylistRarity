@@ -19,7 +19,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
-
 // -- JSON Parsing -- //
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -28,7 +27,7 @@ public class SpotifyAuth {
 
     private static final String CLIENT_ID = System.getenv("SPOTIFY_CLIENT_ID");
     private static final String REDIRECT_URI = "http://127.0.0.1:8888/callback";
-    private static final String SCOPE = "playlist-read-private playlist-read-collaborative";
+    private static final String SCOPE = "playlist-read-private playlist-read-collaborative user-read-email";
 
     public static void main(String[] args) throws Exception{
 
@@ -73,8 +72,10 @@ public class SpotifyAuth {
                 HttpResponse.BodyHandlers.ofString()
         );
 
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode tokenJson = mapper.readTree(tokenResponse.body());
+        // json parsing starts here
+
+        ObjectMapper mapper = new ObjectMapper(); // Jackson json parsing starts with this
+        JsonNode tokenJson = mapper.readTree(tokenResponse.body()); // use mapper to create JSON tree to parse from
 
         String accessToken = tokenJson.get("access_token").asText();
         String refreshToken = tokenJson.get("refresh_token").asText();
@@ -83,6 +84,20 @@ public class SpotifyAuth {
         System.out.println("Access Token: " + accessToken);
         System.out.println("Expires in: " + expiresIn + " seconds");
 
+        HttpRequest meRequest = HttpRequest.newBuilder()
+                .uri(URI.create("https://api.spotify.com/v1/me"))
+                .header("Authorization", "Bearer " + accessToken)
+                .GET()
+                .build();
+
+        HttpResponse<String> meResponse = httpClient.send(
+                meRequest,
+                HttpResponse.BodyHandlers.ofString()
+        );
+
+        JsonNode profile = mapper.readTree(meResponse.body());
+        System.out.println("Logged in as: " + profile.get("display_name").asText());
+        System.out.println("Email: " + profile.get("email").asText());
     }
 
     private static void getAuthorizationCode(CompletableFuture<String> codeFuture, String state, HttpServer myServer) throws IOException {
@@ -151,8 +166,7 @@ public class SpotifyAuth {
 
     }
 
-    private static String generateStateString()
-    {
+    private static String generateStateString() {
         // random state string that protects against cross site request forgery
         byte[] randomBytes = new byte[16];
         new SecureRandom().nextBytes(randomBytes);
