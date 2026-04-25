@@ -3,15 +3,13 @@ package org.example;
 // -- Authorization -- //
 import com.sun.net.httpserver.HttpServer;
 
-import java.net.URI;
+import java.net.*;
 import java.awt.Desktop;
-import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.Base64;
 
 // -- Local Server -- //
-import java.net.InetSocketAddress;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -50,8 +48,52 @@ public class SpotifyAuth {
 
         HttpServer myServer = HttpServer.create(new InetSocketAddress(8888),0);
 
-        myServer.create
+        myServer.createContext("/callback", exchange -> {
+            // parse query string from redirect URL
+            String query = exchange.getRequestURI().getQuery(); // everything after /callback?
+            Map<String, String> params = parseQuery(query);
+
+            // check that state matches what we sent
+            if( !(params.get("state").equals(state))){
+                String response = "State mismatch!";
+                exchange.sendResponseHeaders(400, response.length()); //400 = bad request
+                exchange.getResponseBody().write(response.getBytes());
+                exchange.close();
+                codeFuture.completeExceptionally(new SecurityException("State mismatch"));
+                return;
+            }
+
+            // check if user denied authorization
+            if (params.containsKey("error")){
+                String response = "Authorization denied:" + params.get("error");
+                exchange.sendResponseHeaders(400, response.length());
+                exchange.getResponseBody().write(response.getBytes());
+                exchange.close();
+                codeFuture.completeExceptionally(new SecurityException("State mismatch"));
+                return;
+            }
 
 
+
+        }
+
+
+    }
+
+    private static Map<String, String> parseQuery(String query){
+        Map<String, String> params = new HashMap<>();
+
+        if ( query == null){
+            return params;
+        }
+
+        for(String pair : query.split("&")) {
+            int idx = pair.indexOf('=');
+            if (idx > 0) { // looking for [ code=randomnumbershere ] , 0 means no key so skip
+                String key = URLDecoder.decode(pair.substring(0, idx), StandardCharsets.UTF_8);
+                String value = URLDecoder.decode(pair.substring(idx + 1), StandardCharsets.UTF_8);
+                params.put(key, value);
+            }
+        }
     }
 }
