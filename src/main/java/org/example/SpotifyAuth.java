@@ -3,6 +3,7 @@ package org.example;
 // -- Authorization -- //
 import com.sun.net.httpserver.HttpServer;
 
+import java.awt.desktop.OpenFilesEvent;
 import java.io.IOException;
 import java.net.*;
 import java.awt.Desktop;
@@ -72,7 +73,15 @@ public class SpotifyAuth {
                 HttpResponse.BodyHandlers.ofString()
         );
 
-        System.out.println("Token response: " + tokenResponse.body());
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode tokenJson = mapper.readTree(tokenResponse.body());
+
+        String accessToken = tokenJson.get("access_token").asText();
+        String refreshToken = tokenJson.get("refresh_token").asText();
+        int expiresIn = tokenJson.get("expires_in").asInt();
+
+        System.out.println("Access Token: " + accessToken);
+        System.out.println("Expires in: " + expiresIn + " seconds");
 
     }
 
