@@ -1,10 +1,9 @@
 package org.example;
 
 // -- Authorization -- //
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.sun.net.httpserver.HttpServer;
 
-import java.awt.desktop.OpenFilesEvent;
-import java.awt.desktop.OpenFilesHandler;
 import java.io.IOException;
 import java.net.*;
 import java.awt.Desktop;
@@ -12,9 +11,11 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.SecureRandom;
+import java.time.Instant;
 import java.util.Base64;
 
 // -- Local Server -- //
@@ -32,51 +33,76 @@ public class SpotifyAuth {
     private static final String CLIENT_ID = System.getenv("SPOTIFY_CLIENT_ID");
     private static final String REDIRECT_URI = "http://127.0.0.1:8888/callback";
     private static final String SCOPE = "playlist-read-private playlist-read-collaborative user-read-email";
+
+    private static Path configDir;
+
     public record Tokens(String accessToken, String refreshToken){}
 
     public static Tokens getTokens() throws IOException, InterruptedException, ExecutionException {
 
-
-
-
-        // Get authorizationCode
-
-        String code = getAuthorizationCode();
-
-        System.out.println("Successfully retrieved authorization code");
-
-        // make POST request to get access token
-
-        String credentials = CLIENT_ID + ":" + System.getenv("SPOTIFY_CLIENT_SECRET");
-        String encoded = Base64.getEncoder().encodeToString(credentials.getBytes());
-
-        // construct body of post request
-        String body = "grant_type=authorization_code"
-                + "&code=" + URLEncoder.encode(code, StandardCharsets.UTF_8)
-                + "&redirect_uri=" + URLEncoder.encode(REDIRECT_URI, StandardCharsets.UTF_8);
-
-        HttpClient httpClient = HttpClient.newHttpClient();
-        HttpRequest tokenRequest = HttpRequest.newBuilder()
-                .uri(URI.create("https://accounts.spotify.com/api/token"))  // endpoint to make POST request to
-                .header("Authorization", "Basic " + encoded)
-                .header("Content-Type", "application/x-www-form-urlencoded")
-                .POST(HttpRequest.BodyPublishers.ofString(body))
-                .build();
-
-        HttpResponse<String> tokenResponse = httpClient.send(
-                tokenRequest,
-                HttpResponse.BodyHandlers.ofString() // this determines how the response should be formatted
-        );
-
-        // json parsing starts here
-
         ObjectMapper mapper = new ObjectMapper(); // Jackson json parsing starts with this
-        JsonNode tokenJson = mapper.readTree(tokenResponse.body()); // use mapper to create JSON tree to parse from
 
-        String accessToken = tokenJson.get("access_token").asText();
-        String refreshToken = tokenJson.get("refresh_token").asText();
+        configDir = getTokenFilePath();
 
-        return new Tokens(accessToken, refreshToken);
+        if (Files.exists(configDir)){
+            JsonNode tokenJson = mapper.readTree(configDir.toFile());
+
+            Instant expiresAt = Instant.parse(tokenJson.get("expires_at").asText());
+
+            if(Instant.now().isBefore(expiresAt)){
+                System.out.println("Using existing access token");
+
+                return new Tokens(tokenJson.get("access_token").asText(),
+                        tokenJson.get("refresh_token").asText()
+                );
+            }
+            else{
+                System.out.println("Existing access token expired - REFRESHING");
+                return refreshAccessToken(tokenJson.get("refresh_token").asText());
+            }
+        }
+        else {
+            System.out.println("No access token found - GENERATING");
+
+            // Get authorizationCode
+
+            String code = getAuthorizationCode();
+
+            System.out.println("Successfully retrieved authorization code");
+
+            // make POST request to get access token
+
+            String encoded = getEncoding();
+
+            // construct body of post request
+            String body = "grant_type=authorization_code"
+                    + "&code=" + URLEncoder.encode(code, StandardCharsets.UTF_8)
+                    + "&redirect_uri=" + URLEncoder.encode(REDIRECT_URI, StandardCharsets.UTF_8);
+
+            HttpClient httpClient = HttpClient.newHttpClient();
+            HttpRequest tokenRequest = HttpRequest.newBuilder()
+                    .uri(URI.create("https://accounts.spotify.com/api/token"))  // endpoint to make POST request to
+                    .header("Authorization", "Basic " + encoded)
+                    .header("Content-Type", "application/x-www-form-urlencoded")
+                    .POST(HttpRequest.BodyPublishers.ofString(body))
+                    .build();
+
+            HttpResponse<String> tokenResponse = httpClient.send(
+                    tokenRequest,
+                    HttpResponse.BodyHandlers.ofString() // this determines how the response should be formatted
+            );
+
+            // json parsing starts here
+
+            JsonNode tokenJson = mapper.readTree(tokenResponse.body()); // use mapper to create JSON tree to parse from
+
+            writeTokensToFile(tokenJson);
+
+            String accessToken = tokenJson.get("access_token").asText();
+            String refreshToken = tokenJson.get("refresh_token").asText();
+
+            return new Tokens(accessToken, refreshToken);
+        }
     }
 
     private static String getAuthorizationCode() throws IOException, ExecutionException, InterruptedException {
@@ -187,6 +213,54 @@ public class SpotifyAuth {
             }
         }
         return params;
+    }
+    private static String getEncoding(){
+        String credentials = CLIENT_ID + ":" + System.getenv("SPOTIFY_CLIENT_SECRET");
+        return Base64.getEncoder().encodeToString(credentials.getBytes());
+    }
+    private static Tokens refreshAccessToken(String refreshToken) throws IOException, InterruptedException {
+
+        ObjectMapper mapper = new ObjectMapper();
+
+        HttpClient httpClient = HttpClient.newHttpClient();
+        String requestBody = "grant_type=refresh_token"
+                + "&refresh_token=" + refreshToken;
+
+        HttpRequest httpRequest = HttpRequest.newBuilder()
+                .uri(URI.create("https://accounts.spotify.com/api/token"))
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .header("Authorization", "Basic " + getEncoding())
+                .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+                .build();
+
+        HttpResponse<String> httpResponse = httpClient.send(httpRequest,
+                HttpResponse.BodyHandlers.ofString());
+
+        JsonNode tokenJson = mapper.readTree(httpResponse.body());
+        writeTokensToFile(tokenJson);
+
+        return new Tokens(tokenJson.get("access_token").asText(),
+                tokenJson.get("refresh_token").asText());
+
+    }
+
+    private static void writeTokensToFile(JsonNode tokenJson) throws IOException {
+
+        ObjectMapper mapper = new ObjectMapper();
+        // calculate when the token will expire
+        int expiresIn = tokenJson.get("expires_in").asInt();
+        Instant expiresAt = Instant.now().plusSeconds(expiresIn);
+
+        // remove expires_in key from json Node and replace with expiresAt
+        ObjectNode objectNode = (ObjectNode) tokenJson;
+        objectNode.remove("expires_in");
+        objectNode.put("expires_at", expiresAt.toString());
+
+        // write jsonNode to file at configDir location
+        mapper.writeValue(configDir.toFile(), tokenJson);
+        mapper.writeValue(configDir.getParent().resolve("prettyTokens.json").toFile(),
+                tokenJson);
+
     }
 
     private static Path getTokenFilePath(){

@@ -26,7 +26,6 @@ public class Main {
 
         SpotifyAuth.Tokens tokens = SpotifyAuth.getTokens();
         String accessToken = tokens.accessToken();
-        String refreshToken = tokens.refreshToken();
 
         JsonNode userProfile = getUserProfile(accessToken);
         System.out.println("Logged in as: " + userProfile.get("display_name").asText());
