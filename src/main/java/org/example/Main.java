@@ -12,12 +12,18 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 public class Main {
 
     public static void main(String[] args) throws Exception{
+
+
 
         SpotifyAuth.Tokens tokens = SpotifyAuth.getTokens();
         String accessToken = tokens.accessToken();
@@ -28,12 +34,33 @@ public class Main {
         System.out.println("Email: " + userProfile.get("email").asText());
     }
 
-    private static JsonNode getUserProfile(String token) throws IOException, InterruptedException {
+    private static Path getTokenFilePath(){
+        String os = System.getProperty("os.name").toLowerCase();
+        String userHome = System.getProperty("user.home");
 
+        Path configDir;
+
+        if (os.contains("mac")){
+            configDir = Paths.get(userHome, "Library", "Application Support", "PlaylistRarity");
+        } else if (os.contains("win")) {
+            configDir = Paths.get(System.getenv("APPDATA"), "PlaylistRarity");
+        } else {
+            // Linux and other Unix-likes
+            String xdgConfig = System.getenv("XDG_CONFIG_HOME");
+            if (xdgConfig != null && !xdgConfig.isBlank()) {
+                configDir = Paths.get(xdgConfig, "PlaylistRarity");
+            } else {
+                configDir = Paths.get(userHome, ".config", "PlaylistRarity");
+            }
+        }
+        return configDir.resolve("tokens.json");
+    }
+
+    private static JsonNode getRequest(String getEndpoint, String token) throws IOException, InterruptedException {
         HttpClient httpClient = HttpClient.newHttpClient();
 
         HttpRequest httpRequest = HttpRequest.newBuilder()
-                .uri((URI.create("https://api.spotify.com/v1/me")))
+                .uri((URI.create(getEndpoint)))
                 .header("Authorization", "Bearer " + token)
                 .GET()
                 .build();
@@ -45,6 +72,9 @@ public class Main {
 
         ObjectMapper mapper = new ObjectMapper();
         return mapper.readTree(httpResponse.body());
+    }
 
+    private static JsonNode getUserProfile(String token) throws IOException, InterruptedException {
+        return getRequest("https://api.spotify.com/v1/me", token);
     }
 }
