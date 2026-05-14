@@ -12,6 +12,8 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.SecureRandom;
 import java.util.Base64;
 
@@ -33,6 +35,9 @@ public class SpotifyAuth {
     public record Tokens(String accessToken, String refreshToken){}
 
     public static Tokens getTokens() throws IOException, InterruptedException, ExecutionException {
+
+
+
 
         // Get authorizationCode
 
@@ -181,7 +186,29 @@ public class SpotifyAuth {
                 params.put(key, value);
             }
         }
-
         return params;
     }
+
+    private static Path getTokenFilePath(){
+        String os = System.getProperty("os.name").toLowerCase();
+        String userHome = System.getProperty("user.home");
+
+        Path configDir;
+
+        if (os.contains("mac")){
+            configDir = Paths.get(userHome, "Library", "Application Support", "PlaylistRarity");
+        } else if (os.contains("win")) {
+            configDir = Paths.get(System.getenv("APPDATA"), "PlaylistRarity");
+        } else {
+            // Linux and other Unix-likes
+            String xdgConfig = System.getenv("XDG_CONFIG_HOME");
+            if (xdgConfig != null && !xdgConfig.isBlank()) {
+                configDir = Paths.get(xdgConfig, "PlaylistRarity");
+            } else {
+                configDir = Paths.get(userHome, ".config", "PlaylistRarity");
+            }
+        }
+        return configDir.resolve("tokens.json");
+    }
+
 }
