@@ -46,6 +46,7 @@ public class SpotifyAuth {
         // block main from finishing until callback completed or fails
 
         String code = codeFuture.get();
+
         myServer.stop(0);
         System.out.println("Got authorization code: " + code);
 
@@ -69,7 +70,7 @@ public class SpotifyAuth {
 
         HttpResponse<String> tokenResponse = httpClient.send(
                 tokenRequest,
-                HttpResponse.BodyHandlers.ofString()
+                HttpResponse.BodyHandlers.ofString() // this determines how the response should be formatted
         );
 
         // json parsing starts here
@@ -136,7 +137,7 @@ public class SpotifyAuth {
             exchange.getResponseBody().write(response.getBytes());
             exchange.close();
 
-            codeFuture.complete(code);
+            codeFuture.complete(code); // place STRING, code, into codeFuture so that main can go pass through.
 
         });
 
@@ -176,7 +177,7 @@ public class SpotifyAuth {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
     }
 
-    private static Map<String, String> parseQuery(String query){
+    public static Map<String, String> parseQuery(String query){
         Map<String, String> params = new HashMap<>();
 
         if ( query == null){
