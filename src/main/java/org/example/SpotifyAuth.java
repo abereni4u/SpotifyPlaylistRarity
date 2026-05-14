@@ -4,6 +4,7 @@ package org.example;
 import com.sun.net.httpserver.HttpServer;
 
 import java.awt.desktop.OpenFilesEvent;
+import java.awt.desktop.OpenFilesHandler;
 import java.io.IOException;
 import java.net.*;
 import java.awt.Desktop;
@@ -18,6 +19,7 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 // -- JSON Parsing -- //
 import com.fasterxml.jackson.databind.JsonNode;
@@ -28,27 +30,15 @@ public class SpotifyAuth {
     private static final String CLIENT_ID = System.getenv("SPOTIFY_CLIENT_ID");
     private static final String REDIRECT_URI = "http://127.0.0.1:8888/callback";
     private static final String SCOPE = "playlist-read-private playlist-read-collaborative user-read-email";
+    public record Tokens(String accessToken, String refreshToken){}
 
-    public static void main(String[] args) throws Exception{
+    public static Tokens getTokens() throws IOException, InterruptedException, ExecutionException {
 
-        // Used to verify requests are for and from this client
-        String state = generateStateString();
+        // Get authorizationCode
 
-        // Get user credentials (code) for access token. Redirects back to this page
-        spotifyLogin(state);
+        String code = getAuthorizationCode();
 
-        // using this to prevent main thread from finishing before server receives callback
-
-        CompletableFuture<String> codeFuture = new CompletableFuture<>();
-        HttpServer myServer = HttpServer.create(new InetSocketAddress(8888),0);
-        getAuthorizationCode(codeFuture, state, myServer);
-
-        // block main from finishing until callback completed or fails
-
-        String code = codeFuture.get();
-
-        myServer.stop(0);
-        System.out.println("Got authorization code: " + code);
+        System.out.println("Successfully retrieved authorization code");
 
         // make POST request to get access token
 
@@ -80,28 +70,20 @@ public class SpotifyAuth {
 
         String accessToken = tokenJson.get("access_token").asText();
         String refreshToken = tokenJson.get("refresh_token").asText();
-        int expiresIn = tokenJson.get("expires_in").asInt();
 
-        System.out.println("Access Token: " + accessToken);
-        System.out.println("Expires in: " + expiresIn + " seconds");
-
-        HttpRequest meRequest = HttpRequest.newBuilder()
-                .uri(URI.create("https://api.spotify.com/v1/me"))
-                .header("Authorization", "Bearer " + accessToken)
-                .GET()
-                .build();
-
-        HttpResponse<String> meResponse = httpClient.send(
-                meRequest,
-                HttpResponse.BodyHandlers.ofString()
-        );
-
-        JsonNode profile = mapper.readTree(meResponse.body());
-        System.out.println("Logged in as: " + profile.get("display_name").asText());
-        System.out.println("Email: " + profile.get("email").asText());
+        return new Tokens(accessToken, refreshToken);
     }
 
-    private static void getAuthorizationCode(CompletableFuture<String> codeFuture, String state, HttpServer myServer) throws IOException {
+    private static String getAuthorizationCode() throws IOException, ExecutionException, InterruptedException {
+
+        // Used to verify requests are for and from this client
+        String state = generateStateString();
+
+        // Get user credentials (code) for access token. Redirects back to this page
+        spotifyLogin(state);
+
+        CompletableFuture<String> codeFuture = new CompletableFuture<>();  // using this to prevent main thread from finishing before server receives callback
+        HttpServer myServer = HttpServer.create(new InetSocketAddress(8888),0);
 
         myServer.createContext("/callback", exchange -> {
             // parse query string from redirect URL
@@ -145,6 +127,13 @@ public class SpotifyAuth {
 
         System.out.println("Listening on http://127.0.0.1:8888/callback");
 
+        // block from finishing until callback completed or fails
+
+        String code = codeFuture.get();
+
+        myServer.stop(0);
+
+        return code;
     }
 
     private static void spotifyLogin(String state) throws IOException {
