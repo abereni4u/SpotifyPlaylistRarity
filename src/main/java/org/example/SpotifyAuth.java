@@ -1,9 +1,7 @@
 package org.example;
 
 // -- Authorization -- //
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.sun.net.httpserver.HttpServer;
-
 import java.io.IOException;
 import java.net.*;
 import java.awt.Desktop;
@@ -27,6 +25,7 @@ import java.util.concurrent.ExecutionException;
 // -- JSON Parsing -- //
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class SpotifyAuth {
 
@@ -62,6 +61,7 @@ public class SpotifyAuth {
             }
         }
         else {
+            Files.createDirectories(configDir.getParent());
             System.out.println("No access token found - GENERATING");
 
             // Get authorizationCode
@@ -155,15 +155,10 @@ public class SpotifyAuth {
         });
 
         myServer.start();
-
         System.out.println("Listening on http://127.0.0.1:8888/callback");
-
         // block from finishing until callback completed or fails
-
         String code = codeFuture.get();
-
         myServer.stop(0);
-
         return code;
     }
 
@@ -181,8 +176,8 @@ public class SpotifyAuth {
 
         System.out.println("Opening browser for authorization...");
 
-        // using awt desktop to open a browser, login the user, and retrieve code for
-        // access token
+        // using awt desktop to open a browser, login the user, and initiate callback request to
+        // localhost
         Desktop.getDesktop().browse(URI.create(authUrl));
 
     }
