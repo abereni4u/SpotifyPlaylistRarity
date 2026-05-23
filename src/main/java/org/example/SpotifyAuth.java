@@ -213,6 +213,7 @@ public class SpotifyAuth {
         String credentials = CLIENT_ID + ":" + System.getenv("SPOTIFY_CLIENT_SECRET");
         return Base64.getEncoder().encodeToString(credentials.getBytes());
     }
+    
     private static Tokens refreshAccessToken(String refreshToken) throws IOException, InterruptedException {
 
         ObjectMapper mapper = new ObjectMapper();
@@ -232,10 +233,15 @@ public class SpotifyAuth {
                 HttpResponse.BodyHandlers.ofString());
 
         JsonNode tokenJson = mapper.readTree(httpResponse.body());
-        writeTokensToFile(tokenJson);
 
+        if (tokenJson.get("refresh_token") == null){
+            ObjectNode objectJson = (ObjectNode) tokenJson;
+            objectJson.put("refresh_token", tokenJson.get("access_token").asText());
+            writeTokensToFile(tokenJson);
+        }
         return new Tokens(tokenJson.get("access_token").asText(),
                 tokenJson.get("refresh_token").asText());
+
 
     }
 
