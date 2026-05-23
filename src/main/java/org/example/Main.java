@@ -18,6 +18,11 @@ public class Main {
 
 
         JsonNode userProfile = getUserProfile(accessToken);
+<<<<<<< HEAD
+=======
+        System.out.println("Logged in as: " + userProfile.get("display_name").asText());
+        System.out.println("Email: " + userProfile.get("email").asText());
+>>>>>>> ff18fdc (Fix null refreshToken bug)
 	
     }
 
