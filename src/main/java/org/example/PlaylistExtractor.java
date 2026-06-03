@@ -6,6 +6,7 @@ import java.awt.*;
 import java.io.IOException;
 import java.lang.reflect.Array;
 import java.net.URI;
+import java.util.ArrayList;
 
 
 public class PlaylistExtractor {
@@ -18,12 +19,36 @@ public class PlaylistExtractor {
         }
     }
 
+    public record Track(
+            String songTitle,
+            String artist,
+            int BPM,
+            String camelot,
+            int energy,
+            String addedAt,
+            String duration,
+            int popularity,
+            String[] genres,
+            String album,
+            String albumDate,
+            int dance,
+            int acoustic,
+            int instrumental,
+            int valence,
+            int speech,
+            int live,
+            int loud,
+            String key,
+            String timeSignature,
+            String spotifyID,
+            String explicit
+    ){}
 
     public static void main(String[] args)  {
         // User will get playlist CSV from chosic.com
 
         // Launch broswer with page, start listener / watchService on downloads folder
-        Desktop.getDesktop().browse();
+
         // User places spotify link and downloads CSV
         // program watches download folder for CSV and parsing begins
         // Parse CSV here
