@@ -236,7 +236,7 @@ public class SpotifyAuth {
 
         if (tokenJson.get("refresh_token") == null){
             ObjectNode objectJson = (ObjectNode) tokenJson;
-            objectJson.put("refresh_token", tokenJson.get("access_token").asText());
+            objectJson.put("refresh_token", refreshToken);
             writeTokensToFile(tokenJson);
         }
         return new Tokens(tokenJson.get("access_token").asText(),
