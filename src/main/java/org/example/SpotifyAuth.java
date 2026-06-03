@@ -35,7 +35,7 @@ public class SpotifyAuth {
 
     private static Path configDir;
 
-    public static record Tokens(String accessToken, String refreshToken){}
+    public record Tokens(String accessToken, String refreshToken){}
 
     public static Tokens getTokens() throws IOException, InterruptedException, ExecutionException {
 

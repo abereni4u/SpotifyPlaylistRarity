@@ -55,9 +55,9 @@ public class PlaylistExtractor {
         // User will get playlist CSV from chosic.com
 
         // Grab user playlist with input window
-        String userPlaylist = JOptionPane.showInputDialog(null, "Please enter your playlist");
-        while (userPlaylist == null){
-            userPlaylist = JOptionPane.showInputDialog(null, "Please enter your playlist");
+        String userPlaylist = JOptionPane.showInputDialog(null, "Please enter your Spotify playlist");
+        while ( (userPlaylist == null) || !(userPlaylist.startsWith("open.spotify.com")) ){
+            userPlaylist = JOptionPane.showInputDialog(null, "Please enter your Spotify playlist");
         }
 
         // get downloads path
