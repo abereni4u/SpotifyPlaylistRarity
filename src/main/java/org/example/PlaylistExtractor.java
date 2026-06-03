@@ -64,16 +64,10 @@ public class PlaylistExtractor {
 
         Path downloads = getDownloadPath();
 
-        // keep watching download directory for file with CSV. prints "CSV download" upon success
+        // get chosic CSV using user entered playlist link
 
         Path csvFile = getChosicCSV(downloads, userPlaylist);
 
-        // Create a directory watcher and wait for the existence of a file
-
-
-        // While waiting for existence of file keep browser open
-        // User places spotify link and downloads CSV
-        // Once CSV is downloaded, browser closes and parsing begins
         // Parse CSV here
             // Playlist Object
                 // Array list of Track Objects
