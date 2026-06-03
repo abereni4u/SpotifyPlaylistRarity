@@ -9,6 +9,11 @@ import java.net.URI;
 import java.nio.file.*;
 import java.util.ArrayList;
 import com.microsoft.playwright.*;
+import com.microsoft.playwright.options.AriaRole;
+import com.microsoft.playwright.options.WaitForSelectorState;
+import java.util.List;
+
+import javax.swing.*;
 
 
 public class PlaylistExtractor {
@@ -49,8 +54,11 @@ public class PlaylistExtractor {
     public static void main(String[] args) throws IOException {
         // User will get playlist CSV from chosic.com
 
-        // Launch broswer with page, start listener / watchService on downloads folder
-        Desktop.getDesktop().browse(URI.create("www.chosic.com/spotify-playlist-exporter/"));
+        // Grab user playlist with input window
+        String userPlaylist = JOptionPane.showInputDialog(null, "Please enter your playlist");
+        while (userPlaylist == null){
+            userPlaylist = JOptionPane.showInputDialog(null, "Please enter your playlist");
+        }
 
         // get downloads path
 
@@ -58,9 +66,7 @@ public class PlaylistExtractor {
 
         // keep watching download directory for file with CSV. prints "CSV download" upon success
 
-        Path csvFile = getChosicCSV();
-
-
+        Path csvFile = getChosicCSV(downloads, userPlaylist);
 
         // Create a directory watcher and wait for the existence of a file
 
@@ -91,60 +97,104 @@ public class PlaylistExtractor {
     private static Path getDownloadPath(){
         String userHome = System.getProperty("user.home");
 
-        Path downloadsPath = Paths.get(userHome, "Downloads");
-
-        return downloadsPath;
+        return Paths.get(userHome, "Downloads");
     }
 
-    public static Path getChosicCSV(Path downloads){
+    public static Path getChosicCSV(Path downloads, String userPlaylist) {
 
-        try (Playwright playwright = Playwright.create()){
+        try (Playwright playwright = Playwright.create()) {
 
-            // launch browser
+            // launch browser with additional launch options to simulate real browser while headless
             Browser browser = playwright.chromium().launch(
-                    new BrowserType.LaunchOptions().setHeadless(false)
+                new BrowserType.LaunchOptions()
+                        .setHeadless(true)
+                        .setArgs(List.of(
+                                "--disable-blink-features=AutomationControlled",
+                                "--disable-features=IsolateOrigins,site-per-process",
+                                "--no-sandbox",
+                                "--disable-web-security"
+                        ))
             );
 
             // create browser context
 
-            BrowserContext context = browser.newContext();
+            BrowserContext context =
+                    browser.newContext(new Browser.NewContextOptions()
+                            .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+                            .setViewportSize(1920, 1080)
+                            .setLocale("en-US")
+                            .setTimezoneId("America/New_York"));
+
+            context.addInitScript("Object.defineProperty(navigator, 'webdriver', { get: () => undefined });");
 
             // open chosic page
 
             Page page = context.newPage();
 
+            System.out.println("Opening Chosic page...");
+
             page.navigate("https://www.chosic.com/spotify-playlist-exporter/");
 
             // insert playlist into page
-            page.getByPlaceholder("Paste a Spotify playlist link").fill()
+            page.getByPlaceholder("Paste a Spotify playlist link").fill(userPlaylist);
 
-            System.out.println("Opened browser window, please enter your playlist");
+            System.out.println("Inserting playlist...");
 
-            WatchService watchService = FileSystems.getDefault().newWatchService();
+            // click button
+            page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Start")).click();
 
-            downloads.register(watchService,
-                    StandardWatchEventKinds.ENTRY_CREATE);
+            System.out.println("Waiting for playlist analysis...");
 
-            while(true){
-                WatchKey key = watchService.take();
-                for(WatchEvent<?> event : key.pollEvents()){
-                    Path filePath = ((Path)event.context());
-                    String fileName = filePath.getFileName().toString();
+            // wait for playlist analyis to complete
+            Locator element = page.locator("#export");
+            element.waitFor(new Locator.WaitForOptions()
+                    .setState(WaitForSelectorState.VISIBLE)
+                    .setTimeout(60_000));
+            // click export csv button
 
-                    if(fileName.toLowerCase().endsWith(".csv")) {
-                        System.out.println("CSV downloaded");
-                        return filePath;
-                    }
-                    key.reset();
-                }
-            }
+            System.out.println("Downloading...");
 
-        } catch (InterruptedException | IOException e) {
-            throw new RuntimeException(e);
+            Download download = page.waitForDownload(() -> {
+                page.getByText("Export to CSV").click();
+            });
+
+            Path savedPath = downloads.resolve(download.suggestedFilename());
+            download.saveAs(savedPath);
+
+            System.out.println("CSV downloaded. Path: " + savedPath.toString());
+
+            // close browser:
+            browser.close();
+
+            return savedPath;
+
+        } catch (PlaywrightException e) {
+            JOptionPane.showMessageDialog(null, "Couldn't Export Playlist"
+                    + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            return null;
         }
 
+//            WatchService watchService = FileSystems.getDefault().newWatchService();
+//
+//            downloads.register(watchService,
+//                    StandardWatchEventKinds.ENTRY_CREATE);
+
+//            while(true){
+//                WatchKey key = watchService.take();
+//
+//
+//                for(WatchEvent<?> event : key.pollEvents()){
+//                    Path filePath = ((Path)event.context());
+//                    String fileName = filePath.getFileName().toString();
+//
+//                    if(fileName.toLowerCase().endsWith(".csv")) {
+//                        System.out.println("CSV downloaded");
+//                        return filePath;
+//                    }
+//                    key.reset();
+//                }
+//            }
 
     }
-
 
 }
