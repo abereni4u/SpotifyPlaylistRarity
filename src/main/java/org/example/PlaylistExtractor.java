@@ -9,8 +9,10 @@ import java.net.URI;
 import java.nio.file.*;
 import java.util.ArrayList;
 import com.microsoft.playwright.*;
+import com.microsoft.playwright.assertions.PlaywrightAssertions;
 import com.microsoft.playwright.options.AriaRole;
 import com.microsoft.playwright.options.WaitForSelectorState;
+import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 import java.util.List;
 
 import javax.swing.*;
@@ -56,7 +58,7 @@ public class PlaylistExtractor {
 
         // Grab user playlist with input window
         String userPlaylist = JOptionPane.showInputDialog(null, "Please enter your Spotify playlist");
-        while ( (userPlaylist == null) || !(userPlaylist.startsWith("open.spotify.com")) ){
+        while ( (userPlaylist == null) || !(userPlaylist.startsWith("https://open.spotify.com") || userPlaylist.startsWith("open.spotify.com")) ){
             userPlaylist = JOptionPane.showInputDialog(null, "Please enter your Spotify playlist");
         }
 
@@ -101,12 +103,14 @@ public class PlaylistExtractor {
             // launch browser with additional launch options to simulate real browser while headless
             Browser browser = playwright.chromium().launch(
                 new BrowserType.LaunchOptions()
+                        .setChannel("chrome")
                         .setHeadless(true)
                         .setArgs(List.of(
                                 "--disable-blink-features=AutomationControlled",
                                 "--disable-features=IsolateOrigins,site-per-process",
                                 "--no-sandbox",
-                                "--disable-web-security"
+                                "--disable-web-security",
+                                "--headless=new"
                         ))
             );
 
@@ -123,6 +127,11 @@ public class PlaylistExtractor {
 
             // open chosic page
 
+            context.tracing().start(new Tracing.StartOptions()
+                    .setScreenshots(true)
+                    .setSnapshots(true)
+                    .setSources(true));
+
             Page page = context.newPage();
 
             System.out.println("Opening Chosic page...");
@@ -135,16 +144,23 @@ public class PlaylistExtractor {
             System.out.println("Inserting playlist...");
 
             // click button
-            page.getByRole(AriaRole.BUTTON, new Page.GetByRoleOptions().setName("Start")).click();
+            page.locator("#analyze").click();
 
             System.out.println("Waiting for playlist analysis...");
 
             // wait for playlist analyis to complete
-            Locator element = page.locator("#export");
-            element.waitFor(new Locator.WaitForOptions()
-                    .setState(WaitForSelectorState.VISIBLE)
-                    .setTimeout(60_000));
-            // click export csv button
+
+            page.waitForTimeout(10000);
+            PlaywrightAssertions.setDefaultAssertionTimeout(8000);
+
+            assertThat(page.locator("#export")).isInViewport();
+            page.locator("#export").click();
+
+            //Locator element = page.locator("#export");
+            //element.waitFor(new Locator.WaitForOptions()
+            //        .setState(WaitForSelectorState.ATTACHED)
+            //        .setTimeout(60_000));
+            //// click export csv button
 
             System.out.println("Downloading...");
 
@@ -156,6 +172,9 @@ public class PlaylistExtractor {
             download.saveAs(savedPath);
 
             System.out.println("CSV downloaded. Path: " + savedPath.toString());
+
+            context.tracing().stop(new Tracing.StopOptions()
+                    .setPath(Paths.get("trace.zip")));
 
             // close browser:
             browser.close();
