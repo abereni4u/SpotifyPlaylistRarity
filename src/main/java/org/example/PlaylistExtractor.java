@@ -3,7 +3,9 @@ package org.example;
 
 
 import java.awt.*;
+import java.io.FileReader;
 import java.io.IOException;
+import java.io.Reader;
 import java.lang.reflect.Array;
 import java.net.URI;
 import java.nio.file.*;
@@ -12,6 +14,9 @@ import com.microsoft.playwright.*;
 import com.microsoft.playwright.assertions.PlaywrightAssertions;
 import com.microsoft.playwright.options.AriaRole;
 import com.microsoft.playwright.options.WaitForSelectorState;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVRecord;
+
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 import java.util.List;
 
@@ -20,10 +25,10 @@ import javax.swing.*;
 
 public class PlaylistExtractor {
 
-    public static class csvPlaylist{
+    public static class CSVPlaylist{
         ArrayList<Track> trackItems;
 
-        public csvPlaylist(ArrayList<Track> trackItems){
+        public CSVPlaylist(ArrayList<Track> trackItems){
             this.trackItems = trackItems;
         }
     }
@@ -63,6 +68,45 @@ public class PlaylistExtractor {
                 // Track ID
                 // --- containing audio features, and the title
 
+        ArrayList<Track> arrListTracks = new ArrayList<>();
+
+        try(Reader reader = new FileReader(csvFile.toFile())){
+            // Configures format to automatically handle the first row as headers
+            Iterable<CSVRecord> records = CSVFormat.DEFAULT
+                    .builder()
+                    .setHeader()
+                    .setSkipHeaderRecord(true)
+                    .build()
+                    .parse(reader);
+
+            for(CSVRecord record : records){
+               Track track = new Track.Builder()
+                       .songTitle(record.get("Song"))
+                       .artist(record.get("Artist"))
+                       .BPM(Integer.parseInt(record.get("BPM")))
+                       .camelot(record.get("Camelot"))
+                       .energy(Integer.parseInt(record.get("Energy")))
+                       .addedAt(record.get("Added At"))
+                       .duration(record.get("Duration"))
+                       .popularity(Integer.parseInt(record.get("Popularity")))
+                       .genres(record.get("Genres").split(","))
+                       .album(record.get("Album"))
+                       .albumDate(record.get("Album Date"))
+                       .dance(Integer.parseInt(record.get("Dance")))
+                       .acoustic(Integer.parseInt(record.get("Acoustic")))
+                       .instrumental(Integer.parseInt(record.get("Instrumental")))
+                       .valence(Integer.parseInt(record.get("Valence")))
+                       .speech(Integer.parseInt(record.get("Speech")))
+                       .live(Integer.parseInt(record.get("Live")))
+                       .loud(Integer.parseInt(record.get("Loud")))
+                       .key(record.get("Key"))
+                       .timeSignature(record.get("Time Signature"))
+                       .spotifyID(record.get("Spotify Track Id"))
+                       .build();
+               arrListTracks.add(track);
+            }
+
+        }
         // Public method for converting the playlist into a group of objects with features
     }
 
