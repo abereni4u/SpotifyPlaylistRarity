@@ -52,61 +52,9 @@ public class PlaylistExtractor {
         Path csvFile = getChosicCSV(downloads, userPlaylist);
 
         // Parse CSV here
-            // Playlist Object
-                // Array list of Track Objects
-            // Track Objects
-                // Song Title
-                // Artist
-                // BPM
-                // Camelot
-                // Energy
-                // Duration
-                // Popularity
-                // Genres
-                // Album
-                // Features ~ Dance, Acoustic, Instrumental, Valence, Speech, Live, Loud, Key, Signature
-                // Track ID
-                // --- containing audio features, and the title
+        ArrayList<Track> arrListTracks = csvParser(downloads);
 
-        ArrayList<Track> arrListTracks = new ArrayList<>();
 
-        try(Reader reader = new FileReader(csvFile.toFile())){
-            // Configures format to automatically handle the first row as headers
-            Iterable<CSVRecord> records = CSVFormat.DEFAULT
-                    .builder()
-                    .setHeader()
-                    .setSkipHeaderRecord(true)
-                    .build()
-                    .parse(reader);
-
-            for(CSVRecord record : records){
-               Track track = new Track.Builder()
-                       .songTitle(record.get("Song"))
-                       .artist(record.get("Artist"))
-                       .BPM(Integer.parseInt(record.get("BPM")))
-                       .camelot(record.get("Camelot"))
-                       .energy(Integer.parseInt(record.get("Energy")))
-                       .addedAt(record.get("Added At"))
-                       .duration(record.get("Duration"))
-                       .popularity(Integer.parseInt(record.get("Popularity")))
-                       .genres(record.get("Genres").split(","))
-                       .album(record.get("Album"))
-                       .albumDate(record.get("Album Date"))
-                       .dance(Integer.parseInt(record.get("Dance")))
-                       .acoustic(Integer.parseInt(record.get("Acoustic")))
-                       .instrumental(Integer.parseInt(record.get("Instrumental")))
-                       .valence(Integer.parseInt(record.get("Valence")))
-                       .speech(Integer.parseInt(record.get("Speech")))
-                       .live(Integer.parseInt(record.get("Live")))
-                       .loud(Integer.parseInt(record.get("Loud")))
-                       .key(record.get("Key"))
-                       .timeSignature(record.get("Time Signature"))
-                       .spotifyID(record.get("Spotify Track Id"))
-                       .build();
-               arrListTracks.add(track);
-            }
-
-        }
         // Public method for converting the playlist into a group of objects with features
     }
 
@@ -116,6 +64,48 @@ public class PlaylistExtractor {
         return Paths.get(userHome, "Downloads");
     }
 
+    public static ArrayList<Track> csvParser(Path csvFile) throws IOException {
+        ArrayList<Track> csvTracks = new ArrayList<>();
+
+        try (Reader reader = new FileReader(csvFile.toFile())) {
+            // Configures format to automatically handle the first row as headers
+            Iterable<CSVRecord> records = CSVFormat.DEFAULT
+                    .builder()
+                    .setHeader()
+                    .setSkipHeaderRecord(true)
+                    .build()
+                    .parse(reader);
+
+            for (CSVRecord record : records) {
+                Track track = new Track.Builder()
+                        .songTitle(record.get("Song"))
+                        .artist(record.get("Artist"))
+                        .BPM(Integer.parseInt(record.get("BPM")))
+                        .camelot(record.get("Camelot"))
+                        .energy(Integer.parseInt(record.get("Energy")))
+                        .addedAt(record.get("Added At"))
+                        .duration(record.get("Duration"))
+                        .popularity(Integer.parseInt(record.get("Popularity")))
+                        .genres(record.get("Genres").split(","))
+                        .album(record.get("Album"))
+                        .albumDate(record.get("Album Date"))
+                        .dance(Integer.parseInt(record.get("Dance")))
+                        .acoustic(Integer.parseInt(record.get("Acoustic")))
+                        .instrumental(Integer.parseInt(record.get("Instrumental")))
+                        .valence(Integer.parseInt(record.get("Valence")))
+                        .speech(Integer.parseInt(record.get("Speech")))
+                        .live(Integer.parseInt(record.get("Live")))
+                        .loud(Integer.parseInt(record.get("Loud")))
+                        .key(record.get("Key"))
+                        .timeSignature(record.get("Time Signature"))
+                        .spotifyID(record.get("Spotify Track Id"))
+                        .build();
+                csvTracks.add(track);
+            }
+
+        }
+        return csvTracks;
+    }
     public static Path getChosicCSV(Path downloads, String userPlaylist) {
 
         try (Playwright playwright = Playwright.create()) {
