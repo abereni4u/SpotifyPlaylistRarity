@@ -33,7 +33,7 @@ public class SpotifyAuth {
     private static final String REDIRECT_URI = "http://127.0.0.1:8888/callback";
     private static final String SCOPE = "playlist-read-private playlist-read-collaborative user-read-email";
 
-    private static Path configDir;
+    private static Path tokenFile;
 
     public record Tokens(String accessToken, String refreshToken){}
 
@@ -41,10 +41,12 @@ public class SpotifyAuth {
 
         ObjectMapper mapper = new ObjectMapper(); // Jackson json parsing starts with this
 
-        configDir = getTokenFilePath();
+        // path now comes from AppPaths, shared with the CSV cache
+        tokenFile = AppPaths.tokenFile();
+        Files.createDirectories(tokenFile.getParent());
 
-        if (Files.exists(configDir)){
-            JsonNode tokenJson = mapper.readTree(configDir.toFile());
+        if (Files.exists(tokenFile)){
+            JsonNode tokenJson = mapper.readTree(tokenFile.toFile());
 
             Instant expiresAt = Instant.parse(tokenJson.get("expires_at").asText());
 
@@ -61,7 +63,6 @@ public class SpotifyAuth {
             }
         }
         else {
-            Files.createDirectories(configDir.getParent());
             System.out.println("No access token found - GENERATING");
 
             // Get authorizationCode
@@ -209,11 +210,12 @@ public class SpotifyAuth {
         }
         return params;
     }
+
     private static String getEncoding(){
         String credentials = CLIENT_ID + ":" + System.getenv("SPOTIFY_CLIENT_SECRET");
         return Base64.getEncoder().encodeToString(credentials.getBytes());
     }
-    
+
     private static Tokens refreshAccessToken(String refreshToken) throws IOException, InterruptedException {
 
         ObjectMapper mapper = new ObjectMapper();
@@ -234,15 +236,16 @@ public class SpotifyAuth {
 
         JsonNode tokenJson = mapper.readTree(httpResponse.body());
 
+        // Spotify only returns a refresh_token sometimes, so carry the old one forward when it
+        // doesn't.
         if (tokenJson.get("refresh_token") == null){
             ObjectNode objectJson = (ObjectNode) tokenJson;
             objectJson.put("refresh_token", refreshToken);
-            writeTokensToFile(tokenJson);
         }
+        writeTokensToFile(tokenJson);
+
         return new Tokens(tokenJson.get("access_token").asText(),
                 tokenJson.get("refresh_token").asText());
-
-
     }
 
     private static void writeTokensToFile(JsonNode tokenJson) throws IOException {
@@ -257,33 +260,11 @@ public class SpotifyAuth {
         objectNode.remove("expires_in");
         objectNode.put("expires_at", expiresAt.toString());
 
-        // write jsonNode to file at configDir location
-        mapper.writeValue(configDir.toFile(), tokenJson);
-        mapper.writeValue(configDir.getParent().resolve("prettyTokens.json").toFile(),
+        // write jsonNode to file at tokenFile location
+        mapper.writeValue(tokenFile.toFile(), tokenJson);
+        mapper.writeValue(tokenFile.getParent().resolve("prettyTokens.json").toFile(),
                 tokenJson);
 
-    }
-
-    private static Path getTokenFilePath(){
-        String os = System.getProperty("os.name").toLowerCase();
-        String userHome = System.getProperty("user.home");
-
-        Path configDir;
-
-        if (os.contains("mac")){
-            configDir = Paths.get(userHome, "Library", "Application Support", "PlaylistRarity");
-        } else if (os.contains("win")) {
-            configDir = Paths.get(System.getenv("APPDATA"), "PlaylistRarity");
-        } else {
-            // Linux and other Unix-likes
-            String xdgConfig = System.getenv("XDG_CONFIG_HOME");
-            if (xdgConfig != null && !xdgConfig.isBlank()) {
-                configDir = Paths.get(xdgConfig, "PlaylistRarity");
-            } else {
-                configDir = Paths.get(userHome, ".config", "PlaylistRarity");
-            }
-        }
-        return configDir.resolve("tokens.json");
     }
 
 }
