@@ -12,6 +12,15 @@ from Spotify, and gives each song a rarity score. The idea is a lootbox-style
 reveal. Most songs in a random playlist won't match your taste, but a few might
 be unexpected hits.
 
+## How scoring works (in progress)
+
+Each track gets two scores that are multiplied together:
+
+- **Taste fit:** k-nearest neighbors over z-scored audio features, comparing the track to your top tracks.
+- **Obscurity:** based on the track's global play count from Last.fm.
+
+Multiplying instead of adding means obscurity only pays off for tracks that already fit your taste. An obscure song you'd hate still scores low.
+
 ## Tech stack
 
 - Java 23 + Maven
@@ -32,6 +41,7 @@ doesn't own. Working around that:
   Chosic's playlist exporter, automated with Playwright.
 - User listening data (top tracks, profile) comes from Spotify's Web API
   directly, since that still works for the authenticated user's own data.
+- Planned: global play counts for the obscurity score will come from the Last.fm API.
 
 ## Status
 
